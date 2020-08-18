@@ -182,7 +182,7 @@ services:
     restart: always
 
   postgres:
-    image: 527i05cg.mirror.aliyuncs.com/library/postgres:13
+    image: 527i05cg.mirror.aliyuncs.com/library/postgres:12
     environment:
       POSTGRES_PASSWORD: "123"
     volumes:
@@ -216,7 +216,7 @@ services:
     restart: always
 
   reranker:
-    image: ${ALIYUN_DOCKER_REGISTRY}/reranker:0.1.0
+    image: ${ALIYUN_DOCKER_REGISTRY}/reranker:${RERANKER_VERSION}
     environment:
       MILVUS_ADDRESS: milvus:19530
       PYTHONUNBUFFERED: 1
