@@ -1,0 +1,349 @@
+version: '2.2'
+services:
+  bifurcan-classifier:
+    image: ${ALIYUN_DOCKER_REGISTRY}/bifurcan-local:${BIFURCAN_VERSION}
+    environment:
+      - AWS_S3_MODEL_PATHS=mesoor-customer-deployment:bifurcan/$CLS_MODEL_VERSION;mesoor-customer-deployment:bert/chinese_L-12_H-768_A-12
+      - AWS_NEEDED=1
+      - BERT_LAYERS=12
+      - AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+      - MODEL_PATH=./model/$CLS_MODEL_VERSION.weights
+      - MODEL_TYPE=classification
+      - LOG_LEVEL=INFO
+      - LOG_TIME=True
+      - LABELS=重点要求;普通要求;软性能力;专业学历;证书;联系方式;地点;福利待遇;专业学历;年龄;工作制;薪资;O
+      - PORT=9090
+      - MAX_LEN=128
+    command: >
+      bash -c "python projects/predictor/server_grpc.pyc"
+    restart: always
+
+  bifurcan-reader:
+    image: ${ALIYUN_DOCKER_REGISTRY}/bifurcan-local:${BIFURCAN_VERSION}
+    environment:
+      - AWS_S3_MODEL_PATHS=mesoor-customer-deployment:bifurcan/$READER_MODEL_VERSION;mesoor-customer-deployment:bert/chinese_L-12_H-768_A-12
+      - AWS_NEEDED=1
+      - BERT_LAYERS=6
+      - AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+      - MODEL_PATH=./model/$READER_MODEL_VERSION.weights
+      - MODEL_TYPE=ner
+      - LOG_LEVEL=INFO
+      - LOG_TIME=True
+      - LABELS=A
+      - PORT=9090
+      - MAX_LEN=128
+    command: >
+      bash -c "python projects/predictor/server_grpc.pyc"
+    restart: always
+
+  bifurcan-position-filter:
+    image: ${ALIYUN_DOCKER_REGISTRY}/bifurcan-local:${BIFURCAN_VERSION}
+    environment:
+      - AWS_S3_MODEL_PATHS=mesoor-customer-deployment:bifurcan/$POSITION_FILTER_MODEL_VERSION;mesoor-customer-deployment:bert/chinese_L-12_H-768_A-12
+      - AWS_NEEDED=1
+      - BERT_LAYERS=4
+      - AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+      - MODEL_PATH=./model/$POSITION_FILTER_MODEL_VERSION.weights
+      - MODEL_TYPE=ner
+      - LOG_LEVEL=INFO
+      - LOG_TIME=True
+      - LABELS=A
+      - PORT=9090
+      - MAX_LEN=128
+    command: >
+      bash -c "python projects/predictor/server_grpc.pyc"
+    restart: always
+
+  bifurcan-job-parse:
+    image: ${ALIYUN_DOCKER_REGISTRY}/bifurcan-local:${BIFURCAN_VERSION}
+    environment:
+      - JD_HTTP_SERVER_PORT=80
+      - JD_HTTP_SERVER_N_THREAD=2
+      - JD_CLS_HOST=bifurcan-classifier
+      - JD_CLS_PORT=9090
+      - JD_NER_HOST=bifurcan-reader
+      - JD_NER_PORT=9090
+      - LOG_LEVEL=INFO
+      - LOG_TIME=True
+    command: >
+      bash -c "./wait-for-it.sh bifurcan-classifier:9090 -t 300 ; \
+               ./wait-for-it.sh bifurcan-reader:9090 -t 300 ; \
+               ./wait-for-it.sh bifurcan-position-filter:9090 -t 300 ; \
+               python projects/jdparse/server_http.pyc"
+    restart: always
+
+  bifurcan-expand:
+    image: ${ALIYUN_DOCKER_REGISTRY}/bifurcan-local:v0.0.7
+    environment:
+      - EXPAND_HTTP_SERVER_PORT=80
+      - EXPAND_GRPC_SERVER_PORT=9090
+      - EXPAND_HTTP_SERVER_N_THREAD=2
+      - EXPAND_POSITION_FILTER_HOST=bifurcan-position-filter
+      - EXPAND_POSITION_FILTER_PORT=9090
+      - AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+      - AWS_S3_DATA_PATHS=mesoor-customer-deployment:bifurcan/expand/v1_2020_06_30
+      - AWS_NEEDED=1
+      - LOG_LEVEL=INFO
+      - LOG_TIME=True
+    command: >
+      bash -c "./wait-for-it.sh bifurcan-position-filter:9090 -t 300 ; \
+               python projects/expand/server_http.pyc & \
+               python projects/expand/server_grpc.pyc"
+    restart: always
+
+  redis:
+    image: 527i05cg.mirror.aliyuncs.com/library/redis:5-alpine
+    volumes:
+      - ./redis-data:/data
+    restart: always
+
+  resume-labels:
+    image: registry.cn-hangzhou.aliyuncs.com/nadileaf-ai/resume-labels:0.1.1-noweight-2
+    scale: 8
+    environment:
+      - AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+      - PORT=9090
+    restart: always
+
+
+  zookeeper:
+    image: 527i05cg.mirror.aliyuncs.com/confluentinc/cp-zookeeper:5.0.4
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    restart: always
+
+  kafka:
+    # "`-._,-'"`-._,-'"`-._,-'"`-._,-'"`-._,-'"`-._,-'"`-._,-'"`-._,-'"`-._,-
+    # An important note about accessing Kafka from clients on other machines:
+    # -----------------------------------------------------------------------
+    #
+    # The config used here exposes port 9092 for _external_ connections to the broker
+    # i.e. those from _outside_ the deploy network. This could be from the host machine
+    # running deploy, or maybe further afield if you've got a more complicated setup.
+    # If the latter is true, you will need to change the value 'localhost' in
+    # KAFKA_ADVERTISED_LISTENERS to one that is resolvable to the deploy host from those
+    # remote clients
+    #
+    # For connections _internal_ to the deploy network, such as from other services
+    # and components, use kafka:29092.
+    #
+    # See https://rmoff.net/2018/08/02/kafka-listeners-explained/ for details
+    # "`-._,-'"`-._,-'"`-._,-'"`-._,-'"`-._,-'"`-._,-'"`-._,-'"`-._,-'"`-._,-
+    #
+    image: 527i05cg.mirror.aliyuncs.com/confluentinc/cp-kafka:5.0.4
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_LOG_DIRS: /opt/kafka/data/logs
+    volumes:
+      - ${KAFKA_DATA_PATH}:/opt/kafka/data
+    restart: always
+
+  milvus:
+    cpus: 8
+    image: 527i05cg.mirror.aliyuncs.com/milvusdb/milvus:0.10.1-cpu-d072020-bd02b1
+    volumes:
+      - ${MILVUS_DATA_PATH}/db:/var/lib/milvus/db
+      - ${MILVUS_DATA_PATH}/logs:/var/lib/milvus/logs
+      - ${MILVUS_DATA_PATH}/wal:/var/lib/milvus/wal
+      - ./conf/milvus:/var/lib/milvus/conf
+    restart: always
+
+  #  elasticsearch-init:
+  #    image: ${AWS_DOCKER_REGISTRY}/elasticsearch-ik-pinyin:6.5.4-1
+  #    environment:
+  #      IK_DICTIONARY_S3_BUCKET: mesoor-dataset
+  #      IK_DICTIONARY_S3_PATH: words/tokens_in_works-1.txt
+  #      AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
+  #      AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
+  #    volumes:
+  #      - ./es/ik-ext-data:/usr/share/elasticsearch/plugins/ik/config/ext-data
+  #    command: python init.py
+
+  elasticsearch:
+    image: ${AWS_DOCKER_REGISTRY}/elasticsearch-ik-pinyin:6.5.4-1
+    environment:
+      discovery.type: single-node
+      ES_JAVA_OPTS: "-Xmx16g -Xms16g -XX:-UseConcMarkSweepGC -XX:-UseCMSInitiatingOccupancyOnly -XX:+UseG1GC -XX:MaxGCPauseMillis=300 -XX:InitiatingHeapOccupancyPercent=75"
+    volumes:
+      - ${ES_DATA_PATH}:/usr/share/elasticsearch/data
+    restart: always
+
+  postgres:
+    image: 527i05cg.mirror.aliyuncs.com/library/postgres:13
+    environment:
+      POSTGRES_PASSWORD: "123"
+    volumes:
+      - ${PG_DATA_PATH}:/var/lib/postgresql/data
+    restart: always
+
+  fusion-candidate-embedding-api-event-listener:
+    image: ${AWS_DOCKER_REGISTRY}/fusion-candidate-embedding-api:${FUSION_VERSION}
+    environment:
+      SERVICE_MILVUS_ADDRESS: milvus:19530
+      KAFKA_ADDRESS: kafka:9092
+    volumes:
+      - ./conf/fusion-candidate-embedding-api-event-listener:/conf
+    entrypoint: bash -c "time sleep 30; bin/kafka-listening-application -Dconfig.file=/conf/application.conf -Dlogback.configurationFile=/conf/logback.xml -J-Xmx1024m -J-Xms1024m"
+    depends_on:
+      - kafka
+      - milvus
+    restart: always
+
+  fusion-candidate-field-api-event-listener:
+    image: ${AWS_DOCKER_REGISTRY}/fusion-candidate-field-api:${FUSION_VERSION}
+    environment:
+      ES_ADDRESS: elasticsearch:9200
+      KAFKA_ADDRESS: kafka:9092
+    volumes:
+      - ./conf/fusion-candidate-field-api-event-listener:/conf
+    entrypoint: bash -c "time sleep 30; bin/fusion-candidate-field-api -Dconfig.file=/conf/application.conf -Dlogback.configurationFile=/conf/logback.xml -J-Xmx1024m -J-Xms1024m"
+    depends_on:
+      - kafka
+      - elasticsearch
+    restart: always
+
+  reranker:
+    image: ${ALIYUN_DOCKER_REGISTRY}/reranker:0.1.0
+    environment:
+      MILVUS_ADDRESS: milvus:19530
+      PYTHONUNBUFFERED: 1
+    depends_on:
+      - milvus
+    restart: always
+
+  kafka-init:
+    image: 527i05cg.mirror.aliyuncs.com/confluentinc/cp-kafka:5.0.4
+    entrypoint: |
+      bash -c "kafka-topics --zookeeper zookeeper:2181 --create --topic cdc --partitions 9 --replication-factor 1 --if-not-exists && \
+      kafka-topics --zookeeper zookeeper:2181 --create --topic candidate-embedding-event --partitions 9 --replication-factor 1 --if-not-exists && \
+      kafka-topics --zookeeper zookeeper:2181 --create --topic candidate-field-command --partitions 9 --replication-factor 1 --if-not-exists && \
+      kafka-topics --zookeeper zookeeper:2181 --alter --topic cdc --partitions 9 && \
+      kafka-topics --zookeeper zookeeper:2181 --alter --topic candidate-embedding-event --partitions 9 && \
+      kafka-topics --zookeeper zookeeper:2181 --alter --topic candidate-field-command --partitions 9"
+    depends_on:
+      - kafka
+    restart: "no"
+
+  predator-candidate-recalling-api:
+    image: ${AWS_DOCKER_REGISTRY}/predator-candidate-recalling-api:${PREDATOR_VERSION}
+    environment:
+      SERVICE_MILVUS_ADDRESS: milvus:19530
+      SERVICE_ES_CANDIDATE_SEARCHING_ADDRESS: elasticsearch:9200
+    volumes:
+      - ./conf/predator-candidate-recalling-api:/conf
+    entrypoint: bash -c "time sleep 30; bin/predator-candidate-recalling-api -Dconfig.file=/conf/application.conf -Dlogback.configurationFile=/conf/logback.xml -J-Xmx1024m -J-Xms1024m"
+    depends_on:
+      - elasticsearch
+      - milvus
+    restart: always
+
+  predator-candidate-recommending-api:
+    image: ${AWS_DOCKER_REGISTRY}/predator-candidate-recommending-api:${PREDATOR_VERSION}
+    environment:
+      SERVICE_RERANKER_ADDRESS: reranker:50051
+      SERVICE_CANDIDATE_RECALLING_ADDRESS: predator-candidate-recalling-api:9090
+      SERVICE_ES_CANDIDATE_ADDRESS: elasticsearch:9200
+    volumes:
+      - ./conf/predator-candidate-recommending-api:/conf
+    entrypoint: bash -c "time sleep 30; bin/predator-candidate-recommending-api -Dlogback.configurationFile=/conf/logback.xml -J-Xmx1024m -J-Xms1024m"
+    depends_on:
+      - elasticsearch
+      - milvus
+      - reranker
+      - predator-candidate-recalling-api
+    restart: always
+
+  candidate-poly-encoders:
+    image: ${ALIYUN_DOCKER_REGISTRY}/poly-encoders:${POLY_ENCODERS_VERSION}
+    environment:
+      AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
+      AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
+      AWS_DEFAULT_REGION: cn-northwest-1
+      PYTHONUNBUFFERED: "1"
+      MODEL_DIR: $CANDIDATE_POLY_ENCODER_MODEL_PATH
+      POLY_M: "16"
+      MAX_QUERY_LEN: "512"
+      MAX_CANDIDATE_LEN: "512"
+      RANDOM_SEED: "12345"
+      KAFKA_SERVER: kafka:9092
+    restart: always
+
+  resume-indexer-kafka-listener:
+    image: ${ALIYUN_DOCKER_REGISTRY}/resume-indexer:${RESUME_INDEXER_VERSION}
+    environment:
+      AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
+      AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
+      PYTHONUNBUFFERED: 1
+      FIND_LABELS_SERVER: resume-labels:9090
+      JD_LABELS_SERVER: resume-labels:9090
+      EXPAND_SERVER: bifurcan-expand:9090
+      REDIS_HOST: redis
+      REDIS_KEY_VALUE_HOST: redis
+      IS_SERVER_LOCAL: ""
+      CANDIDATE_POLY_ENCODER_SERVER: candidate-poly-encoders:50051
+      JD_PARSE_BIFURCAN_HOST: bifurcan-job-parse
+      KAFKA_SERVERS: kafka:9092
+      KAFKA_GROUP_ID: resume-indexer-kafka-listener
+      KAFKA_TOPICS: cdc
+      KAFKA_MESSAGE_BATCH_SIZE: "30"
+      ERROR_TOLERANCE: "none"
+    volumes:
+      - ./resume-indexer-kafka-listener-data:/server/resources
+    command: bash -c "python kafka_event_listener.py"
+    depends_on:
+      - kafka
+    restart: always
+
+  resume-indexer-server:
+    image: ${ALIYUN_DOCKER_REGISTRY}/resume-indexer:${RESUME_INDEXER_VERSION}
+    environment:
+      AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
+      AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
+      PYTHONUNBUFFERED: 1
+      FIND_LABELS_SERVER: resume-labels:9090
+      JD_LABELS_SERVER: resume-labels:9090
+      EXPAND_SERVER: bifurcan-expand:9090
+      REDIS_HOST: redis
+      REDIS_KEY_VALUE_HOST: redis
+      IS_SERVER_LOCAL: ""
+      CANDIDATE_POLY_ENCODER_SERVER: candidate-poly-encoders:50051
+      JD_PARSE_BIFURCAN_HOST: bifurcan-job-parse
+      KAFKA_SERVERS: kafka:9092
+      KAFKA_GROUP_ID: resume-indexer-kafka-listener
+      KAFKA_TOPICS: cdc
+      KAFKA_MESSAGE_BATCH_SIZE: "30"
+      ERROR_TOLERANCE: "none"
+    volumes:
+      - ./resume-indexer-server-data:/server/resources
+    command: bash -c "python grpc_server.py"
+    restart: always
+
+  mesoor-recommendation-api:
+    image: ${ALIYUN_DOCKER_REGISTRY}/mesoor-recommendation:${MESOOR_RECOMMENDATION_VERSION}
+    environment:
+      POSTGRESQL_HOST: postgres
+      POSTGRESQL_USER: postgres
+      POSTGRESQL_PASSWORD: 123
+      POSTGRESQL_DATABASE: postgres
+      SERVICE_RESUME_INDEXER_ADDRESS: resume-indexer-server:50051
+      SERVICE_PREDATOR_CANDIDATES_RECOMMENDING_ADDRESS: predator-candidate-recommending-api:9090
+      KAFKA_SERVER: kafka:9092
+    ports:
+      - 50053:50051
+    depends_on:
+      - postgres
+      - resume-indexer-server
+    restart: always
