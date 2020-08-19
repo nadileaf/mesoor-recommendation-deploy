@@ -2,6 +2,8 @@
 
 #### 本地部署
 在本地部署整套系统。整套系统启动大概需要几分钟。
+* 环境要求  
+    Docker Engine >= 19.03.4, docker-compose >= 1.24.1
 * 步骤
     1. 设置环境变量（必须）  
     `AWS_ACCESS_KEY_ID`: AWS 的 KEY （下载镜像及数据用）  
