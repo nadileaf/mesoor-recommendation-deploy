@@ -103,7 +103,6 @@ services:
 
   resume-labels:
     image: registry.cn-hangzhou.aliyuncs.com/nadileaf-ai/resume-labels:0.1.1-noweight-2
-    scale: 8
     environment:
       - AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
       - AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
