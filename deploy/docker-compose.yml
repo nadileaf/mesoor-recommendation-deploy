@@ -175,7 +175,7 @@ services:
     image: ${AWS_DOCKER_REGISTRY}/elasticsearch-ik-pinyin:6.5.4-1
     environment:
       discovery.type: single-node
-      ES_JAVA_OPTS: "-Xmx16g -Xms16g -XX:-UseConcMarkSweepGC -XX:-UseCMSInitiatingOccupancyOnly -XX:+UseG1GC -XX:MaxGCPauseMillis=300 -XX:InitiatingHeapOccupancyPercent=75"
+      ES_JAVA_OPTS: "-Xmx16g -Xms8g -XX:-UseConcMarkSweepGC -XX:-UseCMSInitiatingOccupancyOnly -XX:+UseG1GC -XX:MaxGCPauseMillis=300 -XX:InitiatingHeapOccupancyPercent=75"
     volumes:
       - ${ES_DATA_PATH}:/usr/share/elasticsearch/data
     restart: always
