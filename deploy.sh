@@ -1,6 +1,6 @@
 # AWS
-export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-***REMOVED***}
-export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-***REMOVED***}
+export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-<your_aws_access_key_id>}
+export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-<your_aws_secret_access_key>}
 export AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-cn-northwest-1}
 export AWS_DOCKER_REGISTRY=${AWS_DOCKER_REGISTRY:-722740969534.dkr.ecr.cn-northwest-1.amazonaws.com.cn}
 
