@@ -9,8 +9,6 @@ docker-compose >= 1.24.1
 1. 设置环境变量（必须）
  - `AWS_ACCESS_KEY_ID`: AWS 的 KEY （下载镜像及数据用）
  - `AWS_SECRET_ACCESS_KEY`: AWS 的 SECRET（下载镜像及数据用）
- - `ALIYUN_USERNAME`: 阿里云的用户名（下载镜像用）
- - `ALIYUN_PASSWORD`: 阿里云的密码 （下载镜像用）
  - `KAFKA_DATA_PATH`: Kafka 数据存储文件夹
  - `MILVUS_DATA_PATH`: Milvus 数据存储文件夹
  - `ES_DATA_PATH`: ES 数据存储文件夹，需要充分的权限，权限可以设置为`777`
