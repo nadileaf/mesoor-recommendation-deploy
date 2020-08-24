@@ -1,64 +1,72 @@
 version: '2.2'
 services:
   bifurcan-classifier:
-    image: ${ALIYUN_DOCKER_REGISTRY}/bifurcan-local:${BIFURCAN_VERSION}
+    image: ${AWS_DOCKER_REGISTRY}/match-local:bifurcan-local-${BIFURCAN_VERSION}
     environment:
       - AWS_S3_MODEL_PATHS=mesoor-customer-deployment:bifurcan/$CLS_MODEL_VERSION;mesoor-customer-deployment:bert/chinese_L-12_H-768_A-12
-      - AWS_NEEDED=1
+      #      - AWS_NEEDED=1
       - BERT_LAYERS=12
       - AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
       - AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
-      - MODEL_PATH=./model/$CLS_MODEL_VERSION.weights
+      - MODEL_PATH=/bifurcan-volume/model/$CLS_MODEL_VERSION/$CLS_MODEL_VERSION.weights
       - MODEL_TYPE=classification
       - LOG_LEVEL=INFO
       - LOG_TIME=True
       - LABELS=重点要求;普通要求;软性能力;专业学历;证书;联系方式;地点;福利待遇;专业学历;年龄;工作制;薪资;O
       - PORT=9090
       - MAX_LEN=128
+      - BASE_PATH=/bifurcan-volume
+    volumes:
+      - $BIFURCAN_DATA_PATH:/bifurcan-volume:ro
     command: >
       bash -c "python projects/predictor/server_grpc.pyc"
     restart: always
 
   bifurcan-reader:
-    image: ${ALIYUN_DOCKER_REGISTRY}/bifurcan-local:${BIFURCAN_VERSION}
+    image: ${AWS_DOCKER_REGISTRY}/match-local:bifurcan-local-${BIFURCAN_VERSION}
     environment:
       - AWS_S3_MODEL_PATHS=mesoor-customer-deployment:bifurcan/$READER_MODEL_VERSION;mesoor-customer-deployment:bert/chinese_L-12_H-768_A-12
-      - AWS_NEEDED=1
+      #      - AWS_NEEDED=1
       - BERT_LAYERS=6
       - AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
       - AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
-      - MODEL_PATH=./model/$READER_MODEL_VERSION.weights
+      - MODEL_PATH=/bifurcan-volume/model/$READER_MODEL_VERSION/$READER_MODEL_VERSION.weights
       - MODEL_TYPE=ner
       - LOG_LEVEL=INFO
       - LOG_TIME=True
       - LABELS=A
       - PORT=9090
       - MAX_LEN=128
+      - BASE_PATH=/bifurcan-volume
+    volumes:
+      - $BIFURCAN_DATA_PATH:/bifurcan-volume:ro
     command: >
       bash -c "python projects/predictor/server_grpc.pyc"
     restart: always
 
   bifurcan-position-filter:
-    image: ${ALIYUN_DOCKER_REGISTRY}/bifurcan-local:${BIFURCAN_VERSION}
+    image: registry.cn-hangzhou.aliyuncs.com/mesoor-ai/bifurcan-local:$BIFURCAN_VERSION
     environment:
       - AWS_S3_MODEL_PATHS=mesoor-customer-deployment:bifurcan/$POSITION_FILTER_MODEL_VERSION;mesoor-customer-deployment:bert/chinese_L-12_H-768_A-12
-      - AWS_NEEDED=1
+      #      - AWS_NEEDED=1
       - BERT_LAYERS=4
       - AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
       - AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
-      - MODEL_PATH=./model/$POSITION_FILTER_MODEL_VERSION.weights
+      - MODEL_PATH=/bifurcan-volume/model/$POSITION_FILTER_MODEL_VERSION/$POSITION_FILTER_MODEL_VERSION.weights
       - MODEL_TYPE=ner
       - LOG_LEVEL=INFO
       - LOG_TIME=True
-      - LABELS=A
+      - LABELS=POS
       - PORT=9090
       - MAX_LEN=128
+      - BASE_PATH=/bifurcan-volume
+    volumes:
+      - $BIFURCAN_DATA_PATH:/bifurcan-volume:ro
     command: >
       bash -c "python projects/predictor/server_grpc.pyc"
-    restart: always
 
   bifurcan-job-parse:
-    image: ${ALIYUN_DOCKER_REGISTRY}/bifurcan-local:${BIFURCAN_VERSION}
+    image: ${AWS_DOCKER_REGISTRY}/match-local:bifurcan-local-${BIFURCAN_VERSION}
     environment:
       - JD_HTTP_SERVER_PORT=80
       - JD_HTTP_SERVER_N_THREAD=2
@@ -76,19 +84,22 @@ services:
     restart: always
 
   bifurcan-expand:
-    image: ${ALIYUN_DOCKER_REGISTRY}/bifurcan-local:v0.0.7
+    image: ${AWS_DOCKER_REGISTRY}/match-local:bifurcan-local-v0.0.7
     environment:
       - EXPAND_HTTP_SERVER_PORT=80
-      - EXPAND_GRPC_SERVER_PORT=9090
+      - EXPAND_GRPC_SERVER_PORT=9000
       - EXPAND_HTTP_SERVER_N_THREAD=2
       - EXPAND_POSITION_FILTER_HOST=bifurcan-position-filter
       - EXPAND_POSITION_FILTER_PORT=9090
       - AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
       - AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
       - AWS_S3_DATA_PATHS=mesoor-customer-deployment:bifurcan/expand/v1_2020_06_30
-      - AWS_NEEDED=1
+      #      - AWS_NEEDED=1
       - LOG_LEVEL=INFO
       - LOG_TIME=True
+      - BASE_PATH=/bifurcan-volume
+    volumes:
+      - $BIFURCAN_DATA_PATH:/bifurcan-volume:ro
     command: >
       bash -c "./wait-for-it.sh bifurcan-position-filter:9090 -t 300 ; \
                python projects/expand/server_http.pyc & \
@@ -102,7 +113,7 @@ services:
     restart: always
 
   resume-labels:
-    image: registry.cn-hangzhou.aliyuncs.com/nadileaf-ai/resume-labels:0.1.1-noweight-2
+    image: ${AWS_DOCKER_REGISTRY}/match-local:resume-labels-0.1.1-noweight-3
     environment:
       - AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
       - AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
@@ -172,10 +183,10 @@ services:
   #    command: python init.py
 
   elasticsearch:
-    image: ${AWS_DOCKER_REGISTRY}/elasticsearch-ik-pinyin:6.5.4-1
+    image: ${AWS_DOCKER_REGISTRY}/match-local:elasticsearch-ik-pinyin-6.5.4-1
     environment:
       discovery.type: single-node
-      ES_JAVA_OPTS: "-Xmx16g -Xms8g -XX:-UseConcMarkSweepGC -XX:-UseCMSInitiatingOccupancyOnly -XX:+UseG1GC -XX:MaxGCPauseMillis=300 -XX:InitiatingHeapOccupancyPercent=75"
+      ES_JAVA_OPTS: "-Xmx3g -Xms3g -XX:-UseConcMarkSweepGC -XX:-UseCMSInitiatingOccupancyOnly -XX:+UseG1GC -XX:MaxGCPauseMillis=300 -XX:InitiatingHeapOccupancyPercent=75"
     volumes:
       - ${ES_DATA_PATH}:/usr/share/elasticsearch/data
     restart: always
@@ -189,7 +200,7 @@ services:
     restart: always
 
   fusion-candidate-embedding-api-event-listener:
-    image: ${AWS_DOCKER_REGISTRY}/fusion-candidate-embedding-api:${FUSION_VERSION}
+    image: ${AWS_DOCKER_REGISTRY}/match-local:fusion-candidate-embedding-api-${FUSION_VERSION}
     environment:
       SERVICE_MILVUS_ADDRESS: milvus:19530
       KAFKA_ADDRESS: kafka:9092
@@ -202,7 +213,7 @@ services:
     restart: always
 
   fusion-candidate-field-api-event-listener:
-    image: ${AWS_DOCKER_REGISTRY}/fusion-candidate-field-api:${FUSION_VERSION}
+    image: ${AWS_DOCKER_REGISTRY}/match-local:fusion-candidate-field-api-${FUSION_VERSION}
     environment:
       ES_ADDRESS: elasticsearch:9200
       KAFKA_ADDRESS: kafka:9092
@@ -215,7 +226,7 @@ services:
     restart: always
 
   reranker:
-    image: ${ALIYUN_DOCKER_REGISTRY}/reranker:${RERANKER_VERSION}
+    image: ${AWS_DOCKER_REGISTRY}/match-local:reranker-${RERANKER_VERSION}
     environment:
       MILVUS_ADDRESS: milvus:19530
       PYTHONUNBUFFERED: 1
@@ -237,7 +248,7 @@ services:
     restart: "no"
 
   predator-candidate-recalling-api:
-    image: ${AWS_DOCKER_REGISTRY}/predator-candidate-recalling-api:${PREDATOR_VERSION}
+    image: ${AWS_DOCKER_REGISTRY}/match-local:predator-candidate-recalling-api-${PREDATOR_VERSION}
     environment:
       SERVICE_MILVUS_ADDRESS: milvus:19530
       SERVICE_ES_CANDIDATE_SEARCHING_ADDRESS: elasticsearch:9200
@@ -250,7 +261,7 @@ services:
     restart: always
 
   predator-candidate-recommending-api:
-    image: ${AWS_DOCKER_REGISTRY}/predator-candidate-recommending-api:${PREDATOR_VERSION}
+    image: ${AWS_DOCKER_REGISTRY}/match-local:predator-candidate-recommending-api-${PREDATOR_VERSION}
     environment:
       SERVICE_RERANKER_ADDRESS: reranker:50051
       SERVICE_CANDIDATE_RECALLING_ADDRESS: predator-candidate-recalling-api:9090
@@ -266,7 +277,7 @@ services:
     restart: always
 
   candidate-poly-encoders:
-    image: ${ALIYUN_DOCKER_REGISTRY}/poly-encoders:${POLY_ENCODERS_VERSION}
+    image: ${AWS_DOCKER_REGISTRY}/match-local:poly-encoders-${POLY_ENCODERS_VERSION}
     environment:
       AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
       AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
@@ -283,7 +294,7 @@ services:
     restart: always
 
   resume-indexer-kafka-listener:
-    image: ${ALIYUN_DOCKER_REGISTRY}/resume-indexer:${RESUME_INDEXER_VERSION}
+    image: ${AWS_DOCKER_REGISTRY}/match-local:resume-indexer-${RESUME_INDEXER_VERSION}
     environment:
       AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
       AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
@@ -309,7 +320,7 @@ services:
     restart: always
 
   resume-indexer-server:
-    image: ${ALIYUN_DOCKER_REGISTRY}/resume-indexer:${RESUME_INDEXER_VERSION}
+    image: ${AWS_DOCKER_REGISTRY}/match-local:resume-indexer-${RESUME_INDEXER_VERSION}
     environment:
       AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
       AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
@@ -333,7 +344,7 @@ services:
     restart: always
 
   mesoor-recommendation-api:
-    image: ${ALIYUN_DOCKER_REGISTRY}/mesoor-recommendation:${MESOOR_RECOMMENDATION_VERSION}
+    image: ${AWS_DOCKER_REGISTRY}/match-local:mesoor-recommendation-${MESOOR_RECOMMENDATION_VERSION}
     environment:
       POSTGRESQL_HOST: postgres
       POSTGRESQL_USER: postgres
