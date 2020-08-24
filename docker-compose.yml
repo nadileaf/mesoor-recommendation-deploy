@@ -149,6 +149,11 @@ services:
     volumes:
       - ${KAFKA_DATA_PATH}:/opt/kafka/data
     restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9092"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
   milvus:
     cpus: 8
@@ -179,6 +184,11 @@ services:
     volumes:
       - ${ES_DATA_PATH}:/usr/share/elasticsearch/data
     restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200"]
+      interval: 60s
+      timeout: 10s
+      retries: 5
 
   postgres:
     image: 527i05cg.mirror.aliyuncs.com/library/postgres:12
