@@ -311,7 +311,7 @@ services:
       PYTHONUNBUFFERED: 1
       FIND_LABELS_SERVER: resume-labels:9090
       JD_LABELS_SERVER: resume-labels:9090
-      EXPAND_SERVER: bifurcan-expand:9090
+      EXPAND_SERVER: bifurcan-expand:9000
       REDIS_HOST: redis
       REDIS_KEY_VALUE_HOST: redis
       IS_SERVER_LOCAL: ""
@@ -337,7 +337,7 @@ services:
       PYTHONUNBUFFERED: 1
       FIND_LABELS_SERVER: resume-labels:9090
       JD_LABELS_SERVER: resume-labels:9090
-      EXPAND_SERVER: bifurcan-expand:9090
+      EXPAND_SERVER: bifurcan-expand:9000
       REDIS_HOST: redis
       REDIS_KEY_VALUE_HOST: redis
       IS_SERVER_LOCAL: ""
