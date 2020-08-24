@@ -353,7 +353,7 @@ services:
       SERVICE_PREDATOR_CANDIDATES_RECOMMENDING_ADDRESS: predator-candidate-recommending-api:9090
       KAFKA_SERVER: kafka:9092
     ports:
-      - 50053:50051
+      - $MESOOR_RECOMMENDATION_SERVER_PORT:50051
     depends_on:
       - postgres
       - resume-indexer-server
