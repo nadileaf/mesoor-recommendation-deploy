@@ -278,6 +278,8 @@ services:
       MAX_CANDIDATE_LEN: "512"
       RANDOM_SEED: "12345"
       KAFKA_SERVER: kafka:9092
+    volumes:
+      - ./candidate-poly-encoders-model:/opt/mesoor-models
     restart: always
 
   resume-indexer-kafka-listener:
