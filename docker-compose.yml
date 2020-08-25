@@ -45,7 +45,7 @@ services:
     restart: always
 
   bifurcan-position-filter:
-    image: registry.cn-hangzhou.aliyuncs.com/mesoor-ai/bifurcan-local:$BIFURCAN_VERSION
+    image: ${AWS_DOCKER_REGISTRY}/match-local:bifurcan-local-${BIFURCAN_VERSION}
     environment:
       - AWS_S3_MODEL_PATHS=mesoor-customer-deployment:bifurcan/$POSITION_FILTER_MODEL_VERSION;mesoor-customer-deployment:bert/chinese_L-12_H-768_A-12
       #      - AWS_NEEDED=1
