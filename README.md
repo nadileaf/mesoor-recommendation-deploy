@@ -25,8 +25,6 @@ docker-compose >= 1.24.1
 ```shell script
 AWS_ACCESS_KEY_ID=foo \
 AWS_SECRET_ACCESS_KEY=bar \
-ALIYUN_USERNAME=foo \
-ALIYUN_PASSWORD=bar \
 KAFKA_DATA_PATH=./kafka-data \
 MILVUS_DATA_PATH=./milvus-data \
 ES_DATA_PATH=./es-data \
