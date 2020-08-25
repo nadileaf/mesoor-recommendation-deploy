@@ -21,6 +21,8 @@ docker-compose >= 1.24.1
     ```
 3. 如果是第一次执行，下载依赖文件：执行 `download.sh`；如果不是第一次执行，忽略此步骤。
 4. 执行 `deploy.sh`
+5. 执行 `docker ps` 查看运行状况
+6. 如果发现 elasticsearch 没有成功启动，有可能是权限不足的问题。需要执行 `sudo chmod -R 777 $ES_DATA_PATH`
 #### 完整例子:
 ```shell script
 AWS_ACCESS_KEY_ID=foo \
