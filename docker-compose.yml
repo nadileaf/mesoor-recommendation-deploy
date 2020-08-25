@@ -320,7 +320,7 @@ services:
       KAFKA_MESSAGE_BATCH_SIZE: "30"
       ERROR_TOLERANCE: "none"
     volumes:
-      - ./resume-indexer-kafka-listener-data:/server/resources
+      - ./resume-indexer-server-data:/server/resources
     command: bash -c "python kafka_event_listener.py"
     depends_on:
       - kafka
